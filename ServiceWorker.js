@@ -1,4 +1,4 @@
-const cacheName = "DefaultCompany-Degen Island-1.6";
+const cacheName = "DefaultCompany-Degen Island-1.8";
 const contentToCache = [
     "Build/SpearMania-Airdrop.loader.js",
     "Build/SpearMania-Airdrop.framework.js",
