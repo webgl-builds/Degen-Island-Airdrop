@@ -3,12 +3,30 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!-- iOS Safari: standalone fullscreen mode when added to home screen -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Degen Island" />
+    <!-- Android Chrome -->
+    <meta name="mobile-web-app-capable" content="yes" />
     <title>Degen Island</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico" />
+    <link rel="apple-touch-icon" href="TemplateData/icons/unity-logo-dark.png" />
     <link rel="stylesheet" href="TemplateData/style.css" />
     <link rel="manifest" href="manifest.webmanifest" />
   </head>
   <body>
+    <!-- iOS "Add to Home Screen" prompt -->
+    <div id="ios-prompt" style="display:none;">
+      <div id="ios-prompt-bg"></div>
+      <div id="ios-prompt-box">
+        <p><strong>For the best experience:</strong></p>
+        <p>Tap the <span style="font-size:1.3em;">⎋</span> Share button, then <strong>"Add to Home Screen"</strong></p>
+        <p style="font-size:0.85em; opacity:0.7;">This will open the game in fullscreen like an app!</p>
+        <button id="ios-prompt-close">Got it</button>
+      </div>
+    </div>
     <div id="unity-container">
       <canvas id="unity-canvas" width="960" height="600" tabindex="-1"></canvas>
       <div id="unity-loading-bar">
@@ -59,16 +77,41 @@
         streamingAssetsUrl: "StreamingAssets",
         companyName: "DefaultCompany",
         productName: "Degen Island",
-        productVersion: "1.9",
+        productVersion: "2.0",
         showBanner: unityShowBanner,
       };
 
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        var meta = document.createElement('meta');
-        meta.name = 'viewport';
-        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
-        document.getElementsByTagName('head')[0].appendChild(meta);
+      // iOS Safari detection — show "Add to Home Screen" prompt
+      (function() {
+        var isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+        var isStandalone = window.navigator.standalone === true;
+        var dismissed = localStorage.getItem('iosPromptDismissed');
+        if (isIOS && !isStandalone && !dismissed) {
+          var prompt = document.getElementById('ios-prompt');
+          prompt.style.display = 'block';
+          document.getElementById('ios-prompt-close').addEventListener('click', function() {
+            prompt.style.display = 'none';
+            localStorage.setItem('iosPromptDismissed', '1');
+          });
+          document.getElementById('ios-prompt-bg').addEventListener('click', function() {
+            prompt.style.display = 'none';
+            localStorage.setItem('iosPromptDismissed', '1');
+          });
+        }
+      })();
+
+      // Request fullscreen on first touch (works on Android Chrome, not iOS Safari)
+      function tryFullscreen() {
+        var el = document.documentElement;
+        var rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+        if (rfs) {
+          rfs.call(el).catch(function() {});
+        }
+        document.removeEventListener('touchstart', tryFullscreen);
+        document.removeEventListener('click', tryFullscreen);
       }
+      document.addEventListener('touchstart', tryFullscreen, { once: true });
+      document.addEventListener('click', tryFullscreen, { once: true });
 
       canvas.style.background = "url('" + buildUrl + "/SpearMania-Airdrop.jpg') center / cover";
       loadingBar.style.display = "block";
