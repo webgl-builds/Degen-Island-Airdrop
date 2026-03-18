@@ -69,15 +69,15 @@
       }
 
       var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/SpearMania-Airdrop.loader.js";
+      var loaderUrl = buildUrl + "/Degen-Island-Airdrop.loader.js";
       var config = {
-        dataUrl: buildUrl + "/SpearMania-Airdrop.data",
-        frameworkUrl: buildUrl + "/SpearMania-Airdrop.framework.js",
-        codeUrl: buildUrl + "/SpearMania-Airdrop.wasm",
+        dataUrl: buildUrl + "/Degen-Island-Airdrop.data",
+        frameworkUrl: buildUrl + "/Degen-Island-Airdrop.framework.js",
+        codeUrl: buildUrl + "/Degen-Island-Airdrop.wasm",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "DefaultCompany",
         productName: "Degen Island",
-        productVersion: "2.0",
+        productVersion: "2.1",
         showBanner: unityShowBanner,
       };
 
@@ -113,7 +113,7 @@
       document.addEventListener('touchstart', tryFullscreen, { once: true });
       document.addEventListener('click', tryFullscreen, { once: true });
 
-      canvas.style.background = "url('" + buildUrl + "/SpearMania-Airdrop.jpg') center / cover";
+      canvas.style.background = "url('" + buildUrl + "/Degen-Island-Airdrop.jpg') center / cover";
       loadingBar.style.display = "block";
 
       var script = document.createElement("script");
