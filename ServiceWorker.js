@@ -1,9 +1,9 @@
-const cacheName = "DefaultCompany-Degen Island-2.8";
+const cacheName = "DefaultCompany-Degen Island-3.1";
 const contentToCache = [
-    "Build/SpearMania-Airdrop.loader.js",
-    "Build/SpearMania-Airdrop.framework.js",
-    "Build/SpearMania-Airdrop.data",
-    "Build/SpearMania-Airdrop.wasm",
+    "Build/DegenIsland_Build.loader.js",
+    "Build/DegenIsland_Build.framework.js",
+    "Build/DegenIsland_Build.data",
+    "Build/DegenIsland_Build.wasm",
     "TemplateData/style.css"
 
 ];
