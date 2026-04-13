@@ -38,17 +38,18 @@
       <div id="unity-warning"></div>
     </div>
     <script>
-      window.addEventListener("load", function () {
-        if ("serviceWorker" in navigator) {
-          navigator.serviceWorker.register("ServiceWorker.js");
-        }
-      });
-
       var container = document.querySelector("#unity-container");
       var canvas = document.querySelector("#unity-canvas");
       var loadingBar = document.querySelector("#unity-loading-bar");
       var progressBarFull = document.querySelector("#unity-progress-bar-full");
       var warningBanner = document.querySelector("#unity-warning");
+      var searchParams = new URLSearchParams(window.location.search);
+      var shouldRefreshCache = searchParams.get("refresh") === "true";
+      var refreshSuffix = shouldRefreshCache ? "?refresh=" + Date.now() : "";
+
+      function withRefreshSuffix(url) {
+        return url + refreshSuffix;
+      }
 
       function unityShowBanner(msg, type) {
         function updateBannerVisibility() {
@@ -68,18 +69,61 @@
         updateBannerVisibility();
       }
 
-      var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/DegenIsland_Build.loader.js";
-      var config = {
-        dataUrl: buildUrl + "/DegenIsland_Build.data",
-        frameworkUrl: buildUrl + "/DegenIsland_Build.framework.js",
-        codeUrl: buildUrl + "/DegenIsland_Build.wasm",
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "DefaultCompany",
-        productName: "Degen Island",
-        productVersion: "3.1",
-        showBanner: unityShowBanner,
-      };
+      async function clearUnityWebGlCaches() {
+        try {
+          if ("serviceWorker" in navigator) {
+            var registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(
+              registrations
+                .filter(function (registration) {
+                  return registration.scope && registration.scope.toLowerCase().includes("/degen-island");
+                })
+                .map(function (registration) {
+                  return registration.unregister();
+                })
+            );
+          }
+        } catch (error) {
+          console.warn("[Degen Island] Failed to unregister service worker", error);
+        }
+
+        try {
+          if ("caches" in window) {
+            var cacheKeys = await caches.keys();
+            await Promise.all(
+              cacheKeys
+                .filter(function (key) {
+                  var normalized = key.toLowerCase();
+                  return normalized.includes("degen island") || normalized.includes("degen-island") || normalized.includes("unitycache");
+                })
+                .map(function (key) {
+                  return caches.delete(key);
+                })
+            );
+          }
+        } catch (error) {
+          console.warn("[Degen Island] Failed to clear cache storage", error);
+        }
+
+        try {
+          if (window.indexedDB && typeof window.indexedDB.deleteDatabase === "function") {
+            await new Promise(function (resolve) {
+              var request = window.indexedDB.deleteDatabase("UnityCache");
+              request.onsuccess = function () { resolve(); };
+              request.onerror = function () { resolve(); };
+              request.onblocked = function () { resolve(); };
+            });
+          }
+        } catch (error) {
+          console.warn("[Degen Island] Failed to clear UnityCache indexedDB", error);
+        }
+      }
+
+      function registerServiceWorker() {
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.register(withRefreshSuffix("ServiceWorker.js"));
+        }
+      }
 
       // iOS Safari detection — show "Add to Home Screen" prompt
       (function() {
@@ -113,25 +157,95 @@
       document.addEventListener('touchstart', tryFullscreen, { once: true });
       document.addEventListener('click', tryFullscreen, { once: true });
 
-      canvas.style.background = "url('" + buildUrl + "/DegenIsland_Build.jpg') center / cover";
+      var buildUrl = "Build";
+      var loaderUrl = withRefreshSuffix(buildUrl + "/Temp Storage.loader.js");
+      var config = {
+        dataUrl: withRefreshSuffix(buildUrl + "/Temp Storage.data"),
+        frameworkUrl: withRefreshSuffix(buildUrl + "/Temp Storage.framework.js"),
+        codeUrl: withRefreshSuffix(buildUrl + "/Temp Storage.wasm"),
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "DefaultCompany",
+        productName: "Degen Island",
+        productVersion: "3.4.3",
+        showBanner: unityShowBanner,
+      };
+
+      canvas.style.background = "url('" + buildUrl + "/Temp Storage.jpg') center / cover";
       loadingBar.style.display = "block";
 
-      var script = document.createElement("script");
-      script.src = loaderUrl;
-      script.onload = () => {
-        createUnityInstance(canvas, config, (progress) => {
-          progressBarFull.style.width = 100 * progress + "%";
-        }).then((unityInstance) => {
-          loadingBar.style.display = "none";
-        }).catch((message) => {
-          alert(message);
-        });
+      // ── Wallet Injection ─────────────────────────────────────────────────────
+      // The flow:
+      // 1. Unity Start() sends WALLET_REQUEST postMessage to parent (frontend)
+      // 2. Frontend receives it and calls window.injectWallet(wallet) on its own window
+      // 3. We receive it here via window.injectWallet (set by frontend on this window)
+      // 4. We queue it until unityInstance is ready, then SendMessage
+      // ─────────────────────────────────────────────────────────────────────────
+
+      var unityInstance = null;
+      var pendingWallet = null;
+
+      // Called by frontend when it has the wallet ready
+      window.injectWallet = function(wallet) {
+        console.log("[WalletBridge] injectWallet called with wallet:", wallet ? wallet.substring(0, 8) + "..." : "null");
+        if (!wallet) return;
+
+        if (unityInstance) {
+          // Instance ready — send immediately
+          console.log("[WalletBridge] unityInstance ready, sending OnWalletReceived");
+          unityInstance.SendMessage("NearManager", "OnWalletReceived", wallet);
+        } else {
+          // Queue it — will be sent once instance is ready
+          console.log("[WalletBridge] unityInstance not ready, queueing wallet");
+          pendingWallet = wallet;
+        }
       };
-      document.body.appendChild(script);
-    </script>
-    <script type="module">
-      import { NearConnector } from "https://esm.sh/@hot-labs/near-connect";
-      window.NearConnector = NearConnector;
+
+      // ── End Wallet Injection ────────────────────────────────────────────────
+
+      function loadUnity() {
+        var script = document.createElement("script");
+        script.src = loaderUrl;
+        script.onload = function () {
+          createUnityInstance(canvas, config, function (progress) {
+            progressBarFull.style.width = 100 * progress + "%";
+          }).then(function (instance) {
+            loadingBar.style.display = "none";
+            unityInstance = instance;
+            console.log("[WalletBridge] Unity instance ready");
+
+            // Flush any pending wallet that arrived before instance was ready
+            if (pendingWallet) {
+              console.log("[WalletBridge] Flushing pending wallet:", pendingWallet.substring(0, 8) + "...");
+              instance.SendMessage("NearManager", "OnWalletReceived", pendingWallet);
+              pendingWallet = null;
+            }
+          }).catch(function (message) {
+            alert(message);
+          });
+        };
+        script.onerror = function () {
+          alert("Failed to load " + loaderUrl);
+        };
+        document.body.appendChild(script);
+      }
+
+      function bootUnity() {
+        if (shouldRefreshCache) {
+          clearUnityWebGlCaches().then(function () {
+            registerServiceWorker();
+            loadUnity();
+          }).catch(function () {
+            registerServiceWorker();
+            loadUnity();
+          });
+          return;
+        }
+
+        registerServiceWorker();
+        loadUnity();
+      }
+
+      bootUnity();
     </script>
   </body>
 </html>

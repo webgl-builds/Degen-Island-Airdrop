@@ -1,9 +1,9 @@
-const cacheName = "DefaultCompany-Degen Island-3.1";
+const cacheName = "DefaultCompany-Degen Island-3.4.3";
 const contentToCache = [
-    "Build/DegenIsland_Build.loader.js",
-    "Build/DegenIsland_Build.framework.js",
-    "Build/DegenIsland_Build.data",
-    "Build/DegenIsland_Build.wasm",
+    "Build/Temp Storage.loader.js",
+    "Build/Temp Storage.framework.js",
+    "Build/Temp Storage.data",
+    "Build/Temp Storage.wasm",
     "TemplateData/style.css"
 
 ];
